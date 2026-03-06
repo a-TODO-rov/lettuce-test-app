@@ -3,67 +3,29 @@ runner:
     clientName: "lettuce-test-app"
     host: localhost
     port: 6379
+    database: 0
     useTls: false
     #username: "default"
     #password: "password"
-    verifyPeer: false
-    #database: 0
-    #timeout: 1000s
+    timeout: PT0.200S  # 200ms
+
+  pool:
+    maxActive: 8
+    maxIdle: 8
+    minIdle: 1
 
   test:
-    mode: standalone  # standalone, cluster
-    clients: 1 # Number of client instances
-    connectionsPerClient: 1  # Number of connections per client
-    threadsPerConnection: 1  # Number of threads sharing same connection
+    mode: standalone  # standalone or cluster
+    concurrentWorkers: 1  # Number of concurrent worker threads
     workload:
-      type: get_set_async # Available workload types:
-                          # Standalone mode      : redis_commands, redis_commands_async, get_set, multi, pub_sub, get_set_async,
-                          #                        increment_async
-                          # Cluster mode         : redis_commands, redis_commands_async, get_set, get_set_async, pub_sub,
-      maxDuration: PT1M   # Max duration in seconds per workload
-      options: # Options specific per workload. See below for example configuration of get_set_async workload
-        getSetRatio: 0.9      # 50% of operations are get, 50% are set
-        valueSize: 100        # 100 characters
-        iterationCount: 1000  # How many iterations to run of the workload before finishing
-        #delayAfterIteration: PT0S # 0s  Delay after each iteration
-        #delayAfterWorkload: PT1S   # 0s  Delay after each workload
-        #elementsCount: 1     # 1 elements per operation E.g how many elements to push with a `lpush`
-        #transactionSize: 100    # 100 E.g. how many commands to run in a `multi`
-        #awaitAllResponses: true  # true E.g. whether to await all responses before sending next command batch in GetSetAsyncWorkload
-        #keyGenerationStrategy: RANDOM  # RANDOM Options: RANDOM, SEQUENTIAL;
-        #keyPattern: "key-%d"   # key-%d Key pattern to use for key generation
-        keyRangeMin: 0         # 0 Minimum key range
-        keyRangeMax: 1000     # 10000 Maximum key range
-  clientOptions:
-    metricsOptions:
-      commandLatencyMonitoring: true # Enables Lettuce internal command latency monitoring
-      connectionMonitoring: true     # Enables Additional metrics for connection inactive time. Note supported with GA build of lettuce, and required custom Lettuce client build.  See README.md for instruction ho to enable them
-    autoReconnect: true
-    #maintenanceEventsConfig:
-    #  enabled: true
-    #  movingEndpointAddressType: EXTERNAL_IP # INTERNAL_IP, INTERNAL_FQDN, EXTERNAL_IP, EXTERNAL_FQDN
-    #reconnectOptions:
-    #  fixedDelay: PT1S # 1s Configures constant delay between re-connection attempts
-    #pingBeforeActivate: false
-    #requestQueueSize: 2147483647 # 2^31-1 Set the per-connection request queue size.
-                                  # The command invocation will lead to a {@link RedisException} if the queue size is exceeded. Default is {@link Integer#MAX_VALUE}.
-    #disconnectedBehavior: REJECT_COMMANDS  #Options: DEFAULT, ACCEPT_COMMANDS, REJECT_COMMANDS
-    timeoutOptions: # Options to configure command timeouts
-        fixedTimeout: PT0.200S # 200ms
-        timeoutsRelaxingDuringMaintenance: PT1S #
-    #socketOptions:  # Options to configure low-level socket options for the connections kept to Redis servers.
-    #  connectTimeout: PT10S # 10 s
-    #  tcpUserTimeoutOptions:
-    #    tcpUserTimeout: PT7875S # 7875s
-    #    enabled: true
-    #  keepAliveOptions:
-    #    interval: PT75S #75s
-    #    idle: PT2H # 2h
-    #    count: 9
-  clusterClientOptions:
-    topologyRefreshOptions:
-      adaptive:
-        enabled: true
-        refreshTriggers: ALL
-        triggersTimeout: PT30S
-    validateClusterNodeMembership: true
+      type: get_set  # Available workload types: get_set, redis_commands
+      maxDuration: PT10S  # Max duration per workload (10 seconds for testing)
+      options:
+        getSetRatio: 0.5      # Ratio of SET operations (0.5 = 50% GET, 50% SET)
+        valueSize: 100        # Value size in characters
+        iterationCount: 100   # How many iterations per workload run
+        elementsCount: 1      # Number of elements for list operations
+        keyGenerationStrategy: RANDOM  # RANDOM or SEQUENTIAL
+        keyPattern: "key-%d"  # Key pattern
+        keyRangeMin: 0
+        keyRangeMax: 1000
