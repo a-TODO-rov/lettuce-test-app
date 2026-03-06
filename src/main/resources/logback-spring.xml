@@ -37,8 +37,13 @@
         <appender-ref ref="METRICS_TOTAL_FILE"/>
     </logger>
 
-    <logger name="io.lettuce.test.metrics.ExtendedLoggingMeterRegistry" level="DEBUG" additivity="false">
+    <logger name="metrics-reporter" level="DEBUG" additivity="false">
         <appender-ref ref="METRICS_FILE"/>
+        <appender-ref ref="CONSOLE"/>
+    </logger>
+
+    <logger name="io.lettuce.test.metrics.MetricsReporter" level="DEBUG" additivity="false">
+        <appender-ref ref="FILE"/>
         <appender-ref ref="CONSOLE"/>
     </logger>
 
@@ -46,10 +51,6 @@
     <logger name="io.lettuce.core.protocol.ConnectionWatchdog" level="DEBUG"/>
     <logger name="io.lettuce.core.protocol.ReconnectionHandler" level="DEBUG"/>
     <logger name="io.lettuce.core.RedisHandshake" level="DEBUG"/>
-
-    <logger name="io.lettuce.test.config.ConfigDumper" level="INFO" additivity="false">
-        <appender-ref ref="CONFIG_FILE"/>
-    </logger>
 
     <root level="INFO">
         <appender-ref ref="CONSOLE" />
