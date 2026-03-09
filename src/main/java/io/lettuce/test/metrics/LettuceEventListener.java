@@ -1,5 +1,8 @@
 package io.lettuce.test.metrics;
 
+import java.io.Closeable;
+import java.io.IOException;
+
 import io.lettuce.core.event.Event;
 import io.lettuce.core.event.EventBus;
 import io.lettuce.core.event.connection.ConnectedEvent;
@@ -16,7 +19,6 @@ import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-import reactor.core.Disposable;
 
 /**
  * Listens to Lettuce connection events via the EventBus and records metrics for connection lifecycle events.
@@ -30,7 +32,7 @@ public class LettuceEventListener {
 
     private final MeterRegistry meterRegistry;
 
-    private Disposable subscription;
+    private Closeable subscription;
 
     // Counters for connection events
     private final Counter connectedCounter;
@@ -75,8 +77,7 @@ public class LettuceEventListener {
     public void startListening() {
         EventBus eventBus = clientResources.eventBus();
 
-        subscription = eventBus.get().subscribe(this::handleEvent, error -> log.error("Error in event subscription", error),
-                () -> log.info("Event subscription completed"));
+        subscription = eventBus.subscribe(this::handleEvent);
 
         log.info("Started listening to Lettuce events");
     }
@@ -108,9 +109,13 @@ public class LettuceEventListener {
 
     @PreDestroy
     public void stopListening() {
-        if (subscription != null && !subscription.isDisposed()) {
-            subscription.dispose();
-            log.info("Stopped listening to Lettuce events");
+        if (subscription != null) {
+            try {
+                subscription.close();
+                log.info("Stopped listening to Lettuce events");
+            } catch (IOException e) {
+                log.warn("Error closing subscription", e);
+            }
         }
     }
 
