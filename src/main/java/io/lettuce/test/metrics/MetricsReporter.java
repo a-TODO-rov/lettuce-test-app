@@ -171,6 +171,11 @@ public class MetricsReporter {
         ObjectNode result = objectMapper.createObjectNode();
         Instant runEnd = Instant.now();
 
+        // Scenario information (detected from system properties set by Maven profiles)
+        result.put("dependency_profile", detectDependencyProfile());
+        result.put("runner_mode", detectRunnerMode());
+        result.put("reactor_available", isReactorAvailable());
+
         // Basic run information
         result.put("app_name", appName);
         result.put("run_id", generateRunId());
@@ -204,6 +209,25 @@ public class MetricsReporter {
 
     private String generateRunId() {
         return workloadType + "-" + runStart.toEpochMilli();
+    }
+
+    private String detectDependencyProfile() {
+        // -Dstandard is set when using standard profile
+        return System.getProperty("standard") != null ? "standard" : "reactor-optional";
+    }
+
+    private String detectRunnerMode() {
+        // -Dreactive is set when using reactive profile
+        return System.getProperty("reactive") != null ? "reactive" : "sync";
+    }
+
+    private boolean isReactorAvailable() {
+        try {
+            Class.forName("reactor.core.publisher.Mono");
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
     }
 
     record OperationStats(long totalCommands, long successfulCommands, long failedCommands) {

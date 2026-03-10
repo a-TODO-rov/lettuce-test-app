@@ -30,7 +30,7 @@ public class LettuceTestApplication implements ApplicationRunner {
 
     private final ConfigurableApplicationContext context;
 
-    @Value("${runner.mode}")
+    @Value("${runner.mode:sync}")
     private String runMode;
 
     public LettuceTestApplication(LettuceWorkloadRunner syncRunner, ObjectProvider<Runnable> reactiveRunnerProvider,

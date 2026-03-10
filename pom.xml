@@ -17,39 +17,12 @@
     <properties>
         <java.version>17</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <!-- Override versions to use reactor-optional SNAPSHOT artifacts -->
-        <lettuce>reactor-optional-SNAPSHOT</lettuce>
-        <!-- Use custom spring-data-redis with reactor-optional changes -->
-        <spring-data-redis.version>reactor-optional-SNAPSHOT</spring-data-redis.version>
+        <!-- JitPack reactor-optional versions -->
+        <lettuce.reactor-optional.version>reactor-optional-SNAPSHOT</lettuce.reactor-optional.version>
+        <spring-data-redis.reactor-optional.version>reactor-optional-SNAPSHOT</spring-data-redis.reactor-optional.version>
     </properties>
 
     <dependencies>
-        <!-- Spring Data Redis (includes Lettuce) -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-redis</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>io.lettuce</groupId>
-                    <artifactId>lettuce-core</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.springframework.data</groupId>
-                    <artifactId>spring-data-redis</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <!-- Override spring-data-redis to use our SNAPSHOT with reactor-optional support -->
-        <dependency>
-            <groupId>com.github.a-TODO-rov</groupId>
-            <artifactId>spring-data-redis</artifactId>
-            <version>${spring-data-redis.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.github.a-TODO-rov</groupId>
-            <artifactId>lettuce</artifactId>
-            <version>${lettuce}</version>
-        </dependency>
         <!-- Connection pooling support -->
         <dependency>
             <groupId>org.apache.commons</groupId>
@@ -143,15 +116,93 @@
 
     <profiles>
         <!--
-            Sync-only mode (default): excludes reactive code, no Reactor dependency.
-            Activates when REACTOR env var is NOT set.
-            Usage: mvn compile
+        =====================================================================
+        DEPENDENCY PROFILES (choose one: reactor-optional or standard)
+        =====================================================================
+        -->
+
+        <!--
+            reactor-optional: Uses JitPack forks with reactor-optional changes.
+            Lettuce and Spring Data Redis work WITHOUT reactor-core on classpath.
+            This is the DEFAULT profile (activates when 'standard' property is NOT set).
+            Usage: mvn spring-boot:run (or explicitly: mvn spring-boot:run -Preactor-optional)
+        -->
+        <profile>
+            <id>reactor-optional</id>
+            <activation>
+                <property>
+                    <name>!standard</name>
+                </property>
+            </activation>
+            <dependencies>
+                <!-- Spring Boot Redis starter WITHOUT lettuce-core and spring-data-redis -->
+                <dependency>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-data-redis</artifactId>
+                    <exclusions>
+                        <exclusion>
+                            <groupId>io.lettuce</groupId>
+                            <artifactId>lettuce-core</artifactId>
+                        </exclusion>
+                        <exclusion>
+                            <groupId>org.springframework.data</groupId>
+                            <artifactId>spring-data-redis</artifactId>
+                        </exclusion>
+                    </exclusions>
+                </dependency>
+                <!-- JitPack: spring-data-redis with reactor-optional support -->
+                <dependency>
+                    <groupId>com.github.a-TODO-rov</groupId>
+                    <artifactId>spring-data-redis</artifactId>
+                    <version>${spring-data-redis.reactor-optional.version}</version>
+                </dependency>
+                <!-- JitPack: lettuce with reactor-optional support -->
+                <dependency>
+                    <groupId>com.github.a-TODO-rov</groupId>
+                    <artifactId>lettuce</artifactId>
+                    <version>${lettuce.reactor-optional.version}</version>
+                </dependency>
+            </dependencies>
+        </profile>
+
+        <!--
+            standard: Uses official Spring Data Redis and Lettuce from Maven Central.
+            reactor-core comes transitively from lettuce-core and spring-data-redis.
+            Usage: mvn spring-boot:run -Dstandard
+                   mvn spring-boot:run -Dstandard -Dreactive
+        -->
+        <profile>
+            <id>standard</id>
+            <activation>
+                <property>
+                    <name>standard</name>
+                </property>
+            </activation>
+            <dependencies>
+                <!-- Standard Spring Boot Redis starter (reactor-core comes transitively) -->
+                <dependency>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-data-redis</artifactId>
+                </dependency>
+            </dependencies>
+        </profile>
+
+        <!--
+        =====================================================================
+        RUNTIME MODE PROFILES (choose one: sync or reactive)
+        =====================================================================
+        -->
+
+        <!--
+            sync: Excludes reactive code from compilation.
+            Activates by default when 'reactive' property is NOT set.
+            Usage: mvn spring-boot:run (default)
         -->
         <profile>
             <id>sync</id>
             <activation>
                 <property>
-                    <name>!env.REACTOR</name>
+                    <name>!reactive</name>
                 </property>
             </activation>
             <build>
@@ -171,26 +222,50 @@
         </profile>
 
         <!--
-            Reactive mode: includes Reactor and compiles all code including reactive.
-            Activates when REACTOR env var IS set.
-            Usage: REACTOR=reactive mvn compile
+            reactive: Enables reactive mode (sets runner.mode=reactive).
+            Activates when 'reactive' property IS set.
+            Usage: mvn spring-boot:run -Dreactive (with -Dstandard)
+                   mvn spring-boot:run -Dreactive -Dinclude-reactor-dep (with reactor-optional)
         -->
         <profile>
             <id>reactive</id>
             <activation>
                 <property>
-                    <name>env.REACTOR</name>
+                    <name>reactive</name>
+                </property>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.springframework.boot</groupId>
+                        <artifactId>spring-boot-maven-plugin</artifactId>
+                        <configuration>
+                            <systemPropertyVariables>
+                                <runner.mode>reactive</runner.mode>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!--
+            include-reactor-dep: Adds reactor-core dependency.
+            Required for reactor-optional + reactive scenario.
+            Not needed for standard profile (reactor-core comes transitively).
+            Usage: mvn spring-boot:run -Dreactive -Dinclude-reactor-dep
+        -->
+        <profile>
+            <id>include-reactor-dep</id>
+            <activation>
+                <property>
+                    <name>include-reactor-dep</name>
                 </property>
             </activation>
             <dependencies>
                 <dependency>
                     <groupId>io.projectreactor</groupId>
                     <artifactId>reactor-core</artifactId>
-                </dependency>
-                <dependency>
-                    <groupId>io.projectreactor</groupId>
-                    <artifactId>reactor-test</artifactId>
-                    <scope>test</scope>
                 </dependency>
             </dependencies>
         </profile>
