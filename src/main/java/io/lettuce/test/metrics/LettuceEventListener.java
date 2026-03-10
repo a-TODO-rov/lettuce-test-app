@@ -5,6 +5,7 @@ import java.io.IOException;
 
 import io.lettuce.core.event.Event;
 import io.lettuce.core.event.EventBus;
+import io.lettuce.test.metrics.eventbus.EventBusSubscriberFactory;
 import io.lettuce.core.event.connection.ConnectedEvent;
 import io.lettuce.core.event.connection.ConnectionActivatedEvent;
 import io.lettuce.core.event.connection.ConnectionDeactivatedEvent;
@@ -32,6 +33,8 @@ public class LettuceEventListener {
 
     private final MeterRegistry meterRegistry;
 
+    private final EventBusSubscriberFactory subscriberFactory;
+
     private Closeable subscription;
 
     // Counters for connection events
@@ -47,9 +50,11 @@ public class LettuceEventListener {
 
     private final Counter reconnectFailureCounter;
 
-    public LettuceEventListener(ClientResources clientResources, MeterRegistry meterRegistry) {
+    public LettuceEventListener(ClientResources clientResources, MeterRegistry meterRegistry,
+            EventBusSubscriberFactory subscriberFactory) {
         this.clientResources = clientResources;
         this.meterRegistry = meterRegistry;
+        this.subscriberFactory = subscriberFactory;
 
         // Initialize counters
         this.connectedCounter = Counter.builder("redis.connection.events").tag("type", "connected")
@@ -76,9 +81,7 @@ public class LettuceEventListener {
     @PostConstruct
     public void startListening() {
         EventBus eventBus = clientResources.eventBus();
-
-        subscription = eventBus.subscribe(this::handleEvent);
-
+        subscription = subscriberFactory.getSubscriber().subscribe(eventBus, this::handleEvent);
         log.info("Started listening to Lettuce events");
     }
 
