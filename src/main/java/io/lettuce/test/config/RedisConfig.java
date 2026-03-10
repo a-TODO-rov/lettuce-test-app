@@ -1,5 +1,6 @@
 package io.lettuce.test.config;
 
+import io.lettuce.core.api.StatefulConnection;
 import io.lettuce.core.resource.ClientResources;
 import io.lettuce.core.resource.DefaultClientResources;
 import io.lettuce.test.metrics.InstrumentedStringRedisTemplate;
@@ -50,7 +51,7 @@ public class RedisConfig {
         }
 
         // Configure connection pooling
-        GenericObjectPoolConfig<Object> poolConfig = new GenericObjectPoolConfig<>();
+        GenericObjectPoolConfig<StatefulConnection<?, ?>> poolConfig = new GenericObjectPoolConfig<>();
         if (pool != null) {
             poolConfig.setMaxTotal(pool.getMaxActive());
             poolConfig.setMaxIdle(pool.getMaxIdle());
