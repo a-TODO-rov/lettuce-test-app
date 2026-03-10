@@ -18,9 +18,9 @@
         <java.version>17</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <!-- Override versions to use reactor-optional SNAPSHOT artifacts -->
-        <lettuce.version>7.5.1-REACTOR-OPTIONAL</lettuce.version>
+        <lettuce>reactor-optional-SNAPSHOT</lettuce>
         <!-- Use custom spring-data-redis with reactor-optional changes -->
-        <spring-data-redis.version>4.1.0-REACTOR-OPTIONAL</spring-data-redis.version>
+        <spring-data-redis.version>reactor-optional-SNAPSHOT</spring-data-redis.version>
     </properties>
 
     <dependencies>
@@ -31,9 +31,14 @@
         </dependency>
         <!-- Override spring-data-redis to use our SNAPSHOT with reactor-optional support -->
         <dependency>
-            <groupId>org.springframework.data</groupId>
+            <groupId>com.github.a-TODO-rov</groupId>
             <artifactId>spring-data-redis</artifactId>
             <version>${spring-data-redis.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.a-TODO-rov</groupId>
+            <artifactId>lettuce</artifactId>
+            <version>${lettuce}</version>
         </dependency>
         <!-- Reactor core - only included with reactive profile -->
         <!-- Connection pooling support -->
@@ -108,10 +113,8 @@
 
     <repositories>
         <repository>
-            <id>cloud-maven-dev</id>
-            <url>https://artifactory.dev.redislabs.com/artifactory/cloud-maven-dev</url>
-            <releases><enabled>true</enabled></releases>
-            <snapshots><enabled>true</enabled></snapshots>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
         </repository>
         <!-- Spring milestone repo for Spring Boot 4.1.0-M2 -->
         <repository>
