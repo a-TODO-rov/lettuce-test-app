@@ -28,6 +28,16 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.lettuce</groupId>
+                    <artifactId>lettuce-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.springframework.data</groupId>
+                    <artifactId>spring-data-redis</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <!-- Override spring-data-redis to use our SNAPSHOT with reactor-optional support -->
         <dependency>
@@ -40,7 +50,6 @@
             <artifactId>lettuce</artifactId>
             <version>${lettuce}</version>
         </dependency>
-        <!-- Reactor core - only included with reactive profile -->
         <!-- Connection pooling support -->
         <dependency>
             <groupId>org.apache.commons</groupId>
