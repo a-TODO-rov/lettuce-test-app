@@ -139,6 +139,11 @@ public class MetricsReporter {
             scheduledFuture.cancel(true);
         }
 
+        // Shutdown the task scheduler to allow JVM exit
+        if (taskScheduler instanceof ThreadPoolTaskScheduler threadPoolScheduler) {
+            threadPoolScheduler.shutdown();
+        }
+
         // Final dumps
         dumpMetrics();
         dumpSummary();
