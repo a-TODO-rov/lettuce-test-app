@@ -204,6 +204,13 @@ public class MetricsReporter {
         result.put("reconnect_attempts", getCounterValue("redis.reconnect.attempts"));
         result.put("reconnect_failures", getCounterValue("redis.reconnect.failures"));
 
+        // JVM Memory statistics
+        Runtime runtime = Runtime.getRuntime();
+        long usedMemory = runtime.totalMemory() - runtime.freeMemory();
+        result.put("jvm_heap_used_mb", usedMemory / (1024 * 1024));
+        result.put("jvm_heap_max_mb", runtime.maxMemory() / (1024 * 1024));
+        result.put("jvm_heap_total_mb", runtime.totalMemory() / (1024 * 1024));
+
         return result;
     }
 

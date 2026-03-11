@@ -1,213 +1,218 @@
-# Lettuce Test App Runner
+# Lettuce Test App
 
-A workload runner for testing Lettuce client fault tolerance against Redis database upgrades.
+A benchmarking and testing application for comparing **reactor-optional** vs **standard** Lettuce Redis client configurations.
 
-> **ℹ️ NOTE**: This project uses lettuce-core 7.0.0-SNAPSHOT which includes the maintenance events features. The snapshot version is automatically downloaded from Maven repositories.
+## Overview
+
+This project validates the "reactor-optional" architecture using custom forks of Lettuce and Spring Data Redis:
+
+- **[a-TODO-rov/lettuce](https://github.com/a-TODO-rov/lettuce)** - Lettuce fork with reactor-optional support
+- **[a-TODO-rov/spring-data-redis](https://github.com/a-TODO-rov/spring-data-redis)** - Spring Data Redis fork with reactor-optional support
+
+These forks allow applications to use Lettuce **without requiring Project Reactor on the classpath**.
+
+## Test Scenarios
+
+The application supports 4 test scenarios:
+
+| # | Scenario | Command | Description |
+|---|----------|---------|-------------|
+| 1 | reactor-optional + sync | `mvn spring-boot:run` | Fork without Reactor on classpath |
+| 2 | reactor-optional + reactive | `mvn spring-boot:run -Dreactive -Dinclude-reactor-dep` | Fork with Reactor enabled |
+| 3 | standard + sync | `mvn spring-boot:run -Dstandard` | Official Lettuce (sync workload) |
+| 4 | standard + reactive | `mvn spring-boot:run -Dstandard -Dreactive` | Official Lettuce (reactive workload) |
+
+## Quick Start
+
+### Prerequisites
+
+- Java 17+
+- Maven 3.8+
+- Redis server running on `localhost:6379`
+
+### Run a Single Scenario
+
+```bash
+# Scenario 1: reactor-optional + sync (default)
+mvn spring-boot:run
+
+# Scenario 2: reactor-optional + reactive
+mvn spring-boot:run -Dreactive -Dinclude-reactor-dep
+
+# Scenario 3: standard + sync
+mvn spring-boot:run -Dstandard
+
+# Scenario 4: standard + reactive
+mvn spring-boot:run -Dstandard -Dreactive
+```
+
+### Run Full Benchmark
+
+```bash
+# Run all 4 scenarios with 3 runs each
+./scripts/benchmark.sh 3
+
+# Analyze results
+python3 scripts/analyze-results.py benchmark-results/<timestamp>/
+```
+
+### Sample Benchmark Output
+
+```
+================================================================================
+BENCHMARK RESULTS
+================================================================================
+
+reactor-optional-sync:
+  Throughput:         12,693 ±    766 cmd/s
+  Latency (p50):       0.070 ±  0.002 ms
+  Heap Used:              54 MB
+  Reactor: ❌
+
+reactor-optional-reactive:
+  Throughput:         18,823 ±     40 cmd/s
+  Latency (p50):       0.084 ms
+  Heap Used:              85 MB
+  Reactor: ✅
+
+standard-sync:
+  Throughput:         12,807 ±     25 cmd/s
+  Latency (p50):       0.072 ms
+  Heap Used:              89 MB
+  Reactor: ✅
+
+standard-reactive:
+  Throughput:         18,767 ±    175 cmd/s
+  Latency (p50):       0.084 ms
+  Heap Used:             104 MB
+  Reactor: ✅
+
+================================================================================
+COMPARISONS
+================================================================================
+reactor-optional sync vs standard sync: -0.9% throughput
+reactor-optional reactive vs standard reactive: +0.3% throughput
+Reactive vs Sync: +48% throughput (better pipelining)
+Memory: reactor-optional sync uses ~40% less heap (no Reactor loaded)
+```
+
+## Project Structure
+
+```
+├── src/main/java/io/lettuce/test/
+│   ├── LettuceTestApplication.java    # Main application
+│   ├── metrics/
+│   │   ├── eventbus/                  # EventBus subscriber factory
+│   │   ├── MetricsReporter.java       # Generates test-run-summary.json
+│   │   └── LettuceEventListener.java  # Connection event tracking
+│   ├── reactive/                      # Reactive workload (excluded in sync mode)
+│   └── workloads/                     # Test workload implementations
+├── scripts/
+│   ├── benchmark.sh                   # Run all scenarios
+│   └── analyze-results.py             # Generate comparison report
+├── logs/
+│   └── test-run-summary.json          # Latest run results
+└── benchmark-results/                 # Historical benchmark data
+```
+
+## Dependencies
+
+### Reactor-Optional Profile (default)
+
+Uses JitPack to pull the reactor-optional forks:
+
+| Dependency | Fork Repository | Maven Coordinate |
+|------------|-----------------|------------------|
+| Lettuce | [a-TODO-rov/lettuce](https://github.com/a-TODO-rov/lettuce) | `com.github.a-TODO-rov:lettuce` |
+| Spring Data Redis | [a-TODO-rov/spring-data-redis](https://github.com/a-TODO-rov/spring-data-redis) | `com.github.a-TODO-rov:spring-data-redis` |
+
+### Standard Profile (`-Dstandard`)
+
+Uses official releases from Maven Central for comparison:
+
+| Dependency | Official Repository | Maven Coordinate |
+|------------|---------------------|------------------|
+| Lettuce | [lettuce-io/lettuce-core](https://github.com/lettuce-io/lettuce-core) | `io.lettuce:lettuce-core` |
+| Spring Data Redis | [spring-projects/spring-data-redis](https://github.com/spring-projects/spring-data-redis) | `org.springframework.data:spring-data-redis` |
 
 ## Build
 
-### Building the Project
+```bash
+# Build with default profile (reactor-optional)
+mvn clean compile
 
-Use the provided build script to build and test the project:
+# Build with standard profile
+mvn clean compile -Dstandard
 
-```sh
-./scripts/build.sh
+# Format code
+mvn formatter:format
 ```
-
-The build script will:
-1. Check code formatting
-2. Build the lettuce-test-app using the lettuce-core version specified in pom.xml
-3. Run tests to verify everything works correctly
-
-### Manual Build
-
-You can also build manually using Maven:
-
-```sh
-# Check formatting
-mvn formatter:validate
-
-# Build and test
-mvn clean verify
-
-# Run tests
-mvn test
-```
-
-### CI/CD Integration
-The GitHub Actions workflow automatically builds and tests the project. See `.github/workflows/integration.yaml` for details.
-## Usage
-Basic usage with specified runner configuration file and custom log directory:
-```sh
-java -jar target/lettuce-test-app-0.0.1-SNAPSHOT.jar --runner.config=runner-config.yaml --logging.file.path=logs
-``` 
-### Override Configuration Properties
-Properties defined in `runner-config.yaml` can be overridden from the command line using the following syntax:
-```sh
---<property-path>=<value>
-```
-
-#### Example
- ```sh
- java -jar target/lettuce-test-app-0.0.1-SNAPSHOT.jar --runner.config=runner-config.yaml --logging.file.path=logs --runner.test.workload.type=get_set --runner.test.workload.options.getSetRatio=0.3
- ```
- In this example:
- - `--runner.test.workload.type=get_set`: Overrides the workload type to `get_set`.
- - `--runner.test.workload.options.getSetRatio=0.3`: Overrides the `getSetRatio` option for the `get_set` workload.
-
-## Adding new Workload
-You can at any time add new workload (set of operations)
-
-By: 
-1. Choose a sample workload from the `workloads` directory
-2. Ask AI to generate a workload for you or write one depending on your needs
-3. You only need to change the run method in the `WorkloadRunner` class to use the new workload
-4. Run the application
 
 ## Configuration
-## Workloads
 
-### Common Options
+All settings are in `runner-config.yaml`:
 
-| Option          | Description                                                                 | Default Value |
-|-----------------|-----------------------------------------------------------------------------|---------------|
-| `valueSize`     | Size of the value in bytes.                                                 | 100           |
-| `elementsCount` | Number of elements to process.                                              | 1             |
-| `iterationCount`| Number of times to repeat the workload.                                     | 1000          |
-| `getSetRatio`   | Ratio of GET to SET operations.                                             | 0.5           |
-| `transactionSize`| Number of commands to execute per iteration.                               | 100           |
-
-### RedisClient
-
-| Alias                | Class                        | Description                                                                          | Supported Options                                     |
-|----------------------|------------------------------|--------------------------------------------------------------------------------------|-------------------------------------------------------|
-| get_set              | `GetSetWorkload`             | Performs a mix of GET and SET operations with a specified ratio and value size.      | `getSetRatio`, `valueSize`, `iterationCount`          |
-| get_set_async        | `GetSetAsyncWorkload`        | Performs asynchronous GET and SET operations with a specified ratio and value size.  | `getSetRatio`, `valueSize`, `iterationCount`          |
-| redis_commands       | `RedisCommandsWorkload`      | Executes a specified number of get/set/del/incr/lpush/lrange commands.               | `valueSize`, `elementsCount`, `iterationCount`        |
-| redis_commands_async | `RedisCommandsAsyncWorkload` | Executes a specified number of get/set/del/incr/lpush/lrange commands.               | `valueSize`, `elementsCount`, `iterationCount`        |
-| multi                | `MultiWorkload`              | Executes get/set in MULTI/EXEC transactions with a specified size and command count. | `transactionSize`, `iterationCount`, `valueSize`, `getSetRatio` |
-| pub_sub              | `PubSubWorkload`             | Publishes and subscribes to messages on a specified channel.                         |          |
-### RedisClusterClient
-
-| Alias          | Class                               | Description                                                                 | Supported Options                  |
-|----------------|-------------------------------------|-----------------------------------------------------------------------------|-----------------------------------|
-| get_set        | `GetSetClusterWorkload`             | Performs a mix of GET and SET operations on a Redis cluster with a specified ratio and value size. | `getSetRatio`, `valueSize`, `iterationCount` |
-| get_set_async  | `GetSetAsyncClusterWorkload`        | Performs asynchronous GET and SET operations with a specified ratio and value size.  | `getSetRatio`, `valueSize`, `iterationCount`          |
-| redis_commands_async | `RedisCommandsAsyncClusterWorkload` | Executes a specified number of get/set/del/incr/lpush/lrange commands.               | `valueSize`, `elementsCount`, `iterationCount`        |
-| redis_commands | `RedisCommandsClusterWorkload`      | Executes a specified number of get/set/del/incr/lpush/lrange commands.               | `valueSize`, `elementsCount`, `iterationCount`        |
-| pub_sub        | `PubSubClusterWorkload`             | Publishes and subscribes to messages on a specified channel.                         |          |   
-
-## Metrics
- 
-To enable metrics logging and configure the reporting step size, you can modify the configuration as follows:
-### Logging Metrics to a File
-Logging metrics to a file is enabled by default. To disable it, or to change the reporting step size, set the following properties in `application.properties`:
-Metrics will be logged in the default log file (e.g., `${logdir:-logs}/lettuce-test-app-metrics.log`).
-```properties
-logging.metrics.enabled=true
-logging.metrics.step=PT10S
-``` 
-
-### Logging Metrics to InfluxDB
-Logging metrics to InfluxDB is disabled by default.To enable it, you need to set the following properties in `application.properties`:
-
-```properties
-# InfluxDB Configuration for Micrometer (Spring Boot 3.x)
-management.influx.metrics.export.enabled=true
-management.influx.metrics.export.uri=http://localhost:8086
-management.influx.metrics.export.org=<your-organization>
-management.influx.metrics.export.bucket=lettuce-test
-management.influx.metrics.export.token=<your-token>
-management.influx.metrics.export.auto-create-bucket=true
-management.influx.metrics.export.consistency=one
-management.influx.metrics.export.step=PT5S
-```
-### Example InfluxDB Query's
-Example query for visualising throughput per second of get on 10s window
-<details>
-  <summary><strong>Throughput per second</strong></summary>
-
-```sql
- from(bucket: "lettuce-test")
-   |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
-   |> filter(fn: (r) => r["_measurement"] == "redis_command_latency")
-   |> filter(fn: (r) => r["_field"] == "count")
-   |> aggregateWindow(every: 10s, fn: sum, createEmpty: false)  // Sum the count of requests over 10s intervals
-   |> map(fn: (r) => ({ r with _value: r._value / 10.0 }))  // Normalize to requests per second
-   |> yield(name: "throughput")
-```
-
-</details>
-
-### Setting Up InfluxDB
-<details>
-  <summary><strong>Step by step instructions</strong></summary>
- 
- 1. **Pull and Run the InfluxDB Docker container:**
-   ```sh
-   docker run -d --name influxdb -p 8086:8086 -v influxdb_data:/var/lib/influxdb influxdb:latest
-   ```
- 2. **Create Test Bucket:**
-    - Access the InfluxDB UI at `http://localhost:8086`.
-    - Follow the on-screen instructions to set up your initial user, organization, and bucket.
-    - Create a bucket named `lettuce-test`.
-
-3. **Generate Token:**
- - In the InfluxDB UI, go to the `Data` section.
- - Select `Tokens`.
- - Click `Generate Token` and choose `All-Access Token` or `Read/Write Token`.
- - Copy the generated token for later use.
- </details>
-
-### Lettuce Test App Custom Metrics
- **Common Tags:**
-   - run_id: Unique identifier for the test run.
-
- | Metric Name                | Type    | Description                                                                                                                                                                                      | Tags                                                                                        |
- |----------------------------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
- | `lettuce.connect.success`   | Timer   | Measures the duration and count of successful initial Redis connections.                                                                                                                         | N/A                                                                                         |
- | `lettuce.connect.failure`   | Timer   | Measures the duration and count of failed initial Redis connection attempts.                                                                                                                     | N/A                                                                                         |
- | `lettuce.reconnect.attempts`| Counter | Counts the number of Redis reconnect attempts per connection (localAddr, remoteAddr, epid). Corresponds to ReconnectAttemptEvent                                                                 | `epid`: Endpoint ID, `local`: Local address, `remote`: Remote address                       |
- | `lettuce.reconnect.failures`| Counter | Counts the number of failed Redis reconnect attempts.Corresponds to ReconnectFailedEvent                                                                                                         | `epid`: Endpoint ID, `local`: Local address, `remote`: Remote address                       |
- | `lettuce.reconnect.total.attempts `| Counter | Counts the number of Redis reconnect attempts(ReconnectAttemptEvent across all connections)                                                                                                      | N/A                                                                                        |
- | `lettuce.reconnect.total.failures `| Counter | Counts the number of failed Redis reconnect attempts(ReconnectFailedEvent across all connections)                                                                                                | N/A                                                                                        |
- | `redis.connections.total`| Counter | Counts the number of Redis reconnect attempts per connection (INITIATED and completed with ERROR)  . (as reported by lettuce core library via ReconnectAttemptEvent- INITIATED, ReconnectFailedEvent-ERROR | 'status':(INITIATED, ERROR), `epid`: Endpoint ID, `local`: Local address, `remote`: Remote address |
- | `redis.connection.drops.total`| Counter | Counts the number of disconnects per connection (localAddr, remoteAddr, epid). (as reported by lettuce core library via DisconnectedEvents)                                                      | `epid`: Endpoint ID, `local`: Local address, `remote`: Remote address                       |
- | `redis.command.errors`      | Counter | Counts the number of failed Redis command API calls that completed with an exception. (per command type)                                                                                         | `command`: Redis command (e.g., `GET`, `SET`)                                               |
- | `redis.operation.duration.total`     | TIMER   | Measures the execution time of Redis commands from API invocation until command completion. Percentiles (0.5, 0.95, 0.99)                                                                        | Agregated across connections/command types                                                  |
- | `redis.operation.duration`      | TIMER   | Measures the execution time of Redis commands from API invocation until command completion per command.                                                                                          | `command`: Redis command (e.g., `GET`, `SET`), status: (SUCCESS, ERROR, INITIATED)          |
- | `redis.operations.total`      | Counter   | Counts the number of total Redis command API calls completed successfully or with an error.                                                                                                      | `command`: Redis command (e.g., `GET`, `SET`), status: (SUCCESS, ERROR)                 |
-
-### Lettuce App Custom Metrics
-This project uses lettuce-core 7.0.0-SNAPSHOT which includes additional metrics from the maintenance events features that were merged into the main branch.
-
-**Building the Project:**
-Use the build script to build and test the project:
-
-```shell
-./scripts/build.sh
-```
-
-The lettuce-core snapshot version with maintenance events features is automatically downloaded from Maven repositories.
-
-Additional metrics aer enabled/disabled via configuration property in the `runner-config.yaml` file:
 ```yaml
 runner:
-  clientOptions:
-    metricsOptions:
-      commandLatencyMonitoring: true
-      connectionMonitoring: true
+  redis:
+    host: localhost
+    port: 6379
+    timeout: PT0.200S        # Connection timeout
+
+  test:
+    workload:
+      type: get_set          # Workload type (see below)
+      maxDuration: PT10S     # Max test duration
+      options:
+        getSetRatio: 0.5     # 0.5 = 50% GET, 50% SET
+        valueSize: 100       # Payload size in bytes
+        iterationCount: 100  # Operations per run
 ```
-Following additional metrics are available in the modified lettuce version:
 
+Override any setting via command line: `--runner.test.workload.type=redis_commands`
 
-| Metric Name                | Type    | Description                                                                 | Tags                                                                                                                                                                                                  |
-|----------------------------|---------|-----------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `redis.reconnection.duration`   | Timer   | Measures the duration connection was in inactive state during reconnection. | epid                                                                                                                                                                                                  |
-| `redis.reconnection.attempts`   | Counter | Number of reconnection attempts.                                            | epid. <br> Note: this metric is similar to `lettuce.reconnect.attempts`  but is reported directly by Lettuce client itself  and is counted per `epid` (e.g not taged with `local` and `remote` tags). |
+> **Note:** Runner mode (sync/reactive) is controlled via Maven profiles, not config file. Use `-Dreactive` for reactive mode.
 
-Example : 
-```   
- Counter: MeterId{name='lettuce.reconnection.attempts.count', tags=[tag(epid=0x1),tag(runId=${runId:get_set_async-8szygeLU)]} value: 11.0
- Timer: MeterId{name='lettuce.reconnection.inactive.duration', tags=[tag(epid=0x1),tag(runId=${runId:get_set_async-8szygeLU)]} count: 1 total time: 45587.98
+## Workloads (this branch)
+
+This branch supports the following workloads for reactor-optional validation:
+
+| Mode | Workload Type | Description |
+|------|---------------|-------------|
+| **Sync** | `get_set` | Mix of GET/SET operations (default) |
+| **Sync** | `redis_commands` | GET, SET, DEL, INCR, LPUSH, LRANGE |
+| **Reactive** | `reactive_get_set` | Same as `get_set` but using `ReactiveStringRedisTemplate` |
+
+**Key options:**
+- `getSetRatio` - Ratio of SET operations (0.5 = 50% SET, 50% GET)
+- `valueSize` - Payload size in bytes
+- `iterationCount` - Number of operations per test run
+
+## Metrics
+
+Metrics are collected using Micrometer and logged to files. A JSON summary is generated at the end of each run.
+
+### Output Files
+
+| File | Description |
+|------|-------------|
+| `logs/test-run-summary.json` | Final JSON summary with throughput, latency percentiles, success rate |
+| `logs/lettuce-test-app.log` | Periodic metrics snapshots during the run |
+
+### Collected Metrics
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `redis.operation.duration` | Timer | Command latency (p50, p95, p99) |
+| `redis.operations.count` | Counter | Commands by status (success/error) |
+| `redis.reconnect.attempts` | Counter | Reconnection attempts |
+| `redis.reconnect.failures` | Counter | Failed reconnections |
+| `redis.connection.events` | Counter | Connection lifecycle events |
+| `redis.pool.*` | Gauge | Connection pool stats (active, idle, waiting) |
+
+### Configuration
+
+Metrics dump rate in `application.properties`:
+```properties
+metrics.dump.rate=PT5S  # Dump every 5 seconds
 ```
