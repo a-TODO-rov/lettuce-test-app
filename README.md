@@ -6,8 +6,8 @@ A benchmarking and testing application for comparing **reactor-optional** vs **s
 
 This project validates the "reactor-optional" architecture using custom forks of Lettuce and Spring Data Redis:
 
-- **[a-TODO-rov/lettuce](https://github.com/a-TODO-rov/lettuce)** - Lettuce fork with reactor-optional support
-- **[a-TODO-rov/spring-data-redis](https://github.com/a-TODO-rov/spring-data-redis)** - Spring Data Redis fork with reactor-optional support
+- **[a-TODO-rov/lettuce](https://github.com/a-TODO-rov/lettuce/tree/reactor-optional)** - Lettuce fork with reactor-optional support
+- **[a-TODO-rov/spring-data-redis](https://github.com/a-TODO-rov/spring-data-redis/tree/reactor-optional)** - Spring Data Redis fork with reactor-optional support
 
 These forks allow applications to use Lettuce **without requiring Project Reactor on the classpath**.
 
@@ -123,8 +123,8 @@ Uses JitPack to pull the reactor-optional forks:
 
 | Dependency | Fork Repository | Maven Coordinate |
 |------------|-----------------|------------------|
-| Lettuce | [a-TODO-rov/lettuce](https://github.com/a-TODO-rov/lettuce) | `com.github.a-TODO-rov:lettuce` |
-| Spring Data Redis | [a-TODO-rov/spring-data-redis](https://github.com/a-TODO-rov/spring-data-redis) | `com.github.a-TODO-rov:spring-data-redis` |
+| Lettuce | [a-TODO-rov/lettuce](https://github.com/a-TODO-rov/lettuce/tree/reactor-optional) | `com.github.a-TODO-rov:lettuce` |
+| Spring Data Redis | [a-TODO-rov/spring-data-redis](https://github.com/a-TODO-rov/spring-data-redis/tree/reactor-optional) | `com.github.a-TODO-rov:spring-data-redis` |
 
 ### Standard Profile (`-Dstandard`)
 
