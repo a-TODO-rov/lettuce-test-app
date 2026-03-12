@@ -25,14 +25,10 @@
             <groupId>io.lettuce.test</groupId>
             <artifactId>lettuce-test-common</artifactId>
             <exclusions>
-                <!-- Exclude JitPack forks -->
+                <!-- Exclude JitPack Lettuce fork - use official instead -->
                 <exclusion>
                     <groupId>com.github.a-TODO-rov</groupId>
                     <artifactId>lettuce</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.github.a-TODO-rov</groupId>
-                    <artifactId>spring-data-redis</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>

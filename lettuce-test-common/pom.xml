@@ -16,7 +16,12 @@
     <description>Shared code for sync and reactive modules. NO Reactor dependency.</description>
 
     <dependencies>
-        <!-- Spring Boot Redis starter WITHOUT lettuce-core and spring-data-redis -->
+        <!--
+            Spring Boot Redis starter with official Spring Data Redis.
+            We only replace lettuce-core with our reactor-optional fork.
+            No custom SDR fork needed - the Lettuce fork now uses CompletableFuture
+            internally instead of Mono, so official SDR works unchanged.
+        -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
@@ -25,18 +30,7 @@
                     <groupId>io.lettuce</groupId>
                     <artifactId>lettuce-core</artifactId>
                 </exclusion>
-                <exclusion>
-                    <groupId>org.springframework.data</groupId>
-                    <artifactId>spring-data-redis</artifactId>
-                </exclusion>
             </exclusions>
-        </dependency>
-
-        <!-- JitPack: spring-data-redis with reactor-optional support -->
-        <dependency>
-            <groupId>com.github.a-TODO-rov</groupId>
-            <artifactId>spring-data-redis</artifactId>
-            <version>${spring-data-redis.reactor-optional.version}</version>
         </dependency>
 
         <!-- JitPack: lettuce with reactor-optional support -->
