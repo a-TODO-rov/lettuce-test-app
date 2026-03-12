@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.lettuce.test</groupId>
+        <artifactId>lettuce-test-parent</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>lettuce-test-standard-sync</artifactId>
+    <packaging>jar</packaging>
+    <name>Lettuce Test App - Standard Sync</name>
+    <description>Sync test app using OFFICIAL Lettuce/SDR. Reactor IS on classpath (required by official Lettuce).</description>
+
+    <dependencies>
+        <!--
+            Common module with JitPack forks EXCLUDED.
+            We use the common module for shared workload code, config, and metrics,
+            but replace the Redis dependencies with official ones.
+        -->
+        <dependency>
+            <groupId>io.lettuce.test</groupId>
+            <artifactId>lettuce-test-common</artifactId>
+            <exclusions>
+                <!-- Exclude JitPack forks -->
+                <exclusion>
+                    <groupId>com.github.a-TODO-rov</groupId>
+                    <artifactId>lettuce</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.github.a-TODO-rov</groupId>
+                    <artifactId>spring-data-redis</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!--
+            Official Spring Boot Redis starter (includes lettuce-core and spring-data-redis).
+            Note: Official lettuce-core has reactor-core as a COMPILE dependency,
+            so Reactor is automatically on the classpath. This is the key difference
+            from reactor-optional where Reactor is truly optional.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+
+        <!-- Test dependencies -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
+

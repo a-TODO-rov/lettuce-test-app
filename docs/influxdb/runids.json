@@ -1,1 +1,0 @@
-[{"apiVersion":"influxdata.com/v2alpha1","kind":"Variable","metadata":{"name":"agitated-bartik-a25001"},"spec":{"language":"flux","name":"runIds","query":"import \"influxdata/influxdb/schema\"\nschema.tagValues(\n  bucket: v.bucket,\n  tag: \"run_id\",\n)","selected":["c21b999b-001a-4a5c-9ba2-084d1d38c92f"],"type":"query"}}]

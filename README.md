@@ -11,16 +11,33 @@ This project validates the "reactor-optional" architecture using custom forks of
 
 These forks allow applications to use Lettuce **without requiring Project Reactor on the classpath**.
 
+## Architecture
+
+This is a **multi-module Maven project** that physically isolates different dependency profiles:
+
+```
+lettuce-test-app/
+├── lettuce-test-common/           # Shared code: workloads, config, metrics
+├── lettuce-test-sync/             # reactor-optional fork, NO Reactor on classpath
+├── lettuce-test-reactive/         # reactor-optional fork, WITH Reactor
+├── lettuce-test-standard-sync/    # Official Lettuce, sync workload
+└── lettuce-test-standard-reactive/ # Official Lettuce, reactive workload
+```
+
+The multi-module approach **physically enforces** classpath isolation, proving that:
+- `lettuce-test-sync` runs **without** Reactor (validates reactor-optional works)
+- `lettuce-test-standard-sync` **requires** Reactor (official Lettuce dependency)
+
 ## Test Scenarios
 
-The application supports 4 test scenarios:
+| # | Module | Command | Reactor | Description |
+|---|--------|---------|---------|-------------|
+| 1 | `lettuce-test-sync` | `cd lettuce-test-sync && mvn spring-boot:run` | ❌ No | Fork without Reactor |
+| 2 | `lettuce-test-reactive` | `cd lettuce-test-reactive && mvn spring-boot:run` | ✅ Yes | Fork with Reactor |
+| 3 | `lettuce-test-standard-sync` | `cd lettuce-test-standard-sync && mvn spring-boot:run` | ✅ Yes* | Official (sync workload) |
+| 4 | `lettuce-test-standard-reactive` | `cd lettuce-test-standard-reactive && mvn spring-boot:run` | ✅ Yes | Official (reactive workload) |
 
-| # | Scenario | Command | Description |
-|---|----------|---------|-------------|
-| 1 | reactor-optional + sync | `mvn spring-boot:run` | Fork without Reactor on classpath |
-| 2 | reactor-optional + reactive | `mvn spring-boot:run -Dreactive -Dinclude-reactor-dep` | Fork with Reactor enabled |
-| 3 | standard + sync | `mvn spring-boot:run -Dstandard` | Official Lettuce (sync workload) |
-| 4 | standard + reactive | `mvn spring-boot:run -Dstandard -Dreactive` | Official Lettuce (reactive workload) |
+\* *Standard Lettuce always requires Reactor, even for sync operations*
 
 ## Quick Start
 
@@ -30,20 +47,26 @@ The application supports 4 test scenarios:
 - Maven 3.8+
 - Redis server running on `localhost:6379`
 
-### Run a Single Scenario
+### Build All Modules
 
 ```bash
-# Scenario 1: reactor-optional + sync (default)
-mvn spring-boot:run
+mvn clean install -DskipTests
+```
+
+### Run Individual Scenarios
+
+```bash
+# Scenario 1: reactor-optional + sync (NO Reactor on classpath!)
+cd lettuce-test-sync && mvn spring-boot:run
 
 # Scenario 2: reactor-optional + reactive
-mvn spring-boot:run -Dreactive -Dinclude-reactor-dep
+cd lettuce-test-reactive && mvn spring-boot:run
 
-# Scenario 3: standard + sync
-mvn spring-boot:run -Dstandard
+# Scenario 3: standard + sync (Reactor required by official Lettuce)
+cd lettuce-test-standard-sync && mvn spring-boot:run
 
 # Scenario 4: standard + reactive
-mvn spring-boot:run -Dstandard -Dreactive
+cd lettuce-test-standard-reactive && mvn spring-boot:run
 ```
 
 ### Run Full Benchmark
@@ -99,36 +122,48 @@ Memory: reactor-optional sync uses ~40% less heap (no Reactor loaded)
 ## Project Structure
 
 ```
-├── src/main/java/io/lettuce/test/
-│   ├── LettuceTestApplication.java    # Main application
-│   ├── metrics/
-│   │   ├── eventbus/                  # EventBus subscriber factory
-│   │   ├── MetricsReporter.java       # Generates test-run-summary.json
-│   │   └── LettuceEventListener.java  # Connection event tracking
-│   ├── reactive/                      # Reactive workload (excluded in sync mode)
-│   └── workloads/                     # Test workload implementations
+lettuce-test-app/
+├── pom.xml                            # Parent POM (multi-module)
+├── lettuce-test-common/               # Shared module
+│   ├── pom.xml                        # JitPack forks (reactor-optional)
+│   └── src/main/java/io/lettuce/test/
+│       ├── config/                    # Redis & workload configuration
+│       ├── metrics/                   # MetricsReporter, event listeners
+│       ├── workloads/                 # Sync workload implementations
+│       └── LettuceWorkloadRunner.java # Sync workload executor
+├── lettuce-test-sync/                 # reactor-optional + sync
+│   ├── pom.xml                        # NO Reactor dependency
+│   └── src/.../SyncTestApplication.java
+├── lettuce-test-reactive/             # reactor-optional + reactive
+│   ├── pom.xml                        # Adds reactor-core dependency
+│   └── src/.../reactive/              # ReactiveWorkloadRunner, workloads
+├── lettuce-test-standard-sync/        # Official Lettuce + sync
+│   ├── pom.xml                        # Uses spring-boot-starter-data-redis
+│   └── src/.../StandardSyncTestApplication.java
+├── lettuce-test-standard-reactive/    # Official Lettuce + reactive
+│   ├── pom.xml                        # Uses spring-boot-starter-data-redis
+│   └── src/.../StandardReactiveTestApplication.java
 ├── scripts/
 │   ├── benchmark.sh                   # Run all scenarios
 │   └── analyze-results.py             # Generate comparison report
-├── logs/
-│   └── test-run-summary.json          # Latest run results
-└── benchmark-results/                 # Historical benchmark data
+└── logs/
+    └── test-run-summary.json          # Latest run results
 ```
 
 ## Dependencies
 
-### Reactor-Optional Profile (default)
+### Modules Using Reactor-Optional Fork
 
-Uses JitPack to pull the reactor-optional forks:
+`lettuce-test-common`, `lettuce-test-sync`, `lettuce-test-reactive` use JitPack forks:
 
 | Dependency | Fork Repository | Maven Coordinate |
 |------------|-----------------|------------------|
 | Lettuce | [a-TODO-rov/lettuce](https://github.com/a-TODO-rov/lettuce/tree/reactor-optional) | `com.github.a-TODO-rov:lettuce` |
 | Spring Data Redis | [a-TODO-rov/spring-data-redis](https://github.com/a-TODO-rov/spring-data-redis/tree/reactor-optional) | `com.github.a-TODO-rov:spring-data-redis` |
 
-### Standard Profile (`-Dstandard`)
+### Modules Using Official Dependencies
 
-Uses official releases from Maven Central for comparison:
+`lettuce-test-standard-sync`, `lettuce-test-standard-reactive` use official releases:
 
 | Dependency | Official Repository | Maven Coordinate |
 |------------|---------------------|------------------|
@@ -138,14 +173,28 @@ Uses official releases from Maven Central for comparison:
 ## Build
 
 ```bash
-# Build with default profile (reactor-optional)
-mvn clean compile
+# Build all modules
+mvn clean install -DskipTests
 
-# Build with standard profile
-mvn clean compile -Dstandard
+# Build specific module
+mvn clean install -DskipTests -pl lettuce-test-sync -am
 
 # Format code
 mvn formatter:format
+```
+
+## Verify Classpath Isolation
+
+Check that Reactor is NOT on the classpath for the sync module:
+
+```bash
+# Should show Reactor
+cd lettuce-test-reactive && mvn dependency:tree | grep -i reactor
+# Output: io.projectreactor:reactor-core:jar:3.x.x
+
+# Should show NO Reactor
+cd lettuce-test-sync && mvn dependency:tree | grep -i reactor
+# Output: (empty - no matches!)
 ```
 
 ## Configuration

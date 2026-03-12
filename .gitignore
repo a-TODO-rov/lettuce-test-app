@@ -2,7 +2,6 @@ target/
 appendonlydir/
 *.rdb
 *.aof
--
 atlassian-ide-plugin.xml
 *.iml
 redis-git
@@ -17,3 +16,7 @@ dependency-reduced-pom.xml
 .flattened-pom.xml
 *.java-version
 *.DS_Store
+
+# Generated files
+logs/
+benchmark-results/

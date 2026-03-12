@@ -1,15 +1,15 @@
 #!/bin/bash
 #
-# Benchmark script for comparing Lettuce test scenarios
+# Benchmark script for comparing Lettuce test scenarios (multi-module)
 #
 # Usage: ./scripts/benchmark.sh [RUNS]
 #   RUNS: Number of runs per scenario (default: 3)
 #
 # Scenarios:
-#   1. reactor-optional + sync
-#   2. reactor-optional + reactive
-#   3. standard + sync
-#   4. standard + reactive
+#   1. reactor-optional-sync      - Fork without Reactor on classpath
+#   2. reactor-optional-reactive  - Fork with Reactor enabled
+#   3. standard-sync              - Official Lettuce (sync workload)
+#   4. standard-reactive          - Official Lettuce (reactive workload)
 #
 
 set -e
@@ -18,20 +18,21 @@ RUNS=${1:-3}
 COOLDOWN=10
 RESULTS_DIR="benchmark-results/$(date +%Y%m%d-%H%M%S)"
 JAVA_HOME=${JAVA_HOME:-$(/usr/libexec/java_home -v 17 2>/dev/null || echo "")}
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # JVM options for memory tracking
 export MAVEN_OPTS="-Xms256m -Xmx512m -XX:+UseG1GC"
 
-# Scenarios: name:maven-flags
+# Scenarios: name:module_dir
 declare -a SCENARIOS=(
-  "reactor-optional-sync:"
-  "reactor-optional-reactive:-Dreactive -Dinclude-reactor-dep"
-  "standard-sync:-Dstandard"
-  "standard-reactive:-Dstandard -Dreactive"
+  "reactor-optional-sync:lettuce-test-sync"
+  "reactor-optional-reactive:lettuce-test-reactive"
+  "standard-sync:lettuce-test-standard-sync"
+  "standard-reactive:lettuce-test-standard-reactive"
 )
 
 echo "========================================"
-echo "Lettuce Benchmark Suite"
+echo "Lettuce Benchmark Suite (Multi-Module)"
 echo "========================================"
 echo "Runs per scenario: $RUNS"
 echo "Results directory: $RESULTS_DIR"
@@ -49,6 +50,13 @@ else
   JAVA_VERSION=$(java -version 2>&1 | head -1)
   echo "Java: $JAVA_VERSION"
 fi
+echo ""
+
+# Build all modules first
+echo "Building all modules..."
+cd "$PROJECT_ROOT"
+mvn clean install -DskipTests -q
+echo "Build complete."
 echo ""
 
 # Create results directory
@@ -76,37 +84,32 @@ current=0
 
 for scenario_def in "${SCENARIOS[@]}"; do
   name="${scenario_def%%:*}"
-  flags="${scenario_def##*:}"
+  module_dir="${scenario_def##*:}"
   ((current++)) || true
-  
+
   echo ""
   echo "========================================"
   echo "Scenario $current/$total_scenarios: $name"
-  echo "Maven flags: ${flags:-<none>}"
+  echo "Module: $module_dir"
   echo "========================================"
-  
+
   for run in $(seq 1 $RUNS); do
     echo ""
     echo "--- Run $run/$RUNS ---"
-    
-    # Clean compile for first run of each scenario
-    if [ "$run" -eq 1 ]; then
-      echo "Cleaning and compiling..."
-      mvn clean compile $flags -q 2>/dev/null || mvn clean compile $flags
-    fi
-    
-    # Run the test
+
+    # Run the test from module directory
     echo "Running test..."
     start_time=$(date +%s)
-    
-    if mvn spring-boot:run $flags -q 2>&1 | tee "$RESULTS_DIR/${name}-run${run}.log" | grep -E "FINAL TEST RESULTS|total_commands|median_latency|success_rate"; then
+    cd "$PROJECT_ROOT/$module_dir"
+
+    if mvn spring-boot:run -q 2>&1 | tee "$PROJECT_ROOT/$RESULTS_DIR/${name}-run${run}.log" | grep -E "FINAL TEST RESULTS|total_commands|median_latency|success_rate"; then
       end_time=$(date +%s)
       duration=$((end_time - start_time))
       echo "Completed in ${duration}s"
-      
+
       # Copy results
       if [ -f "logs/test-run-summary.json" ]; then
-        cp "logs/test-run-summary.json" "$RESULTS_DIR/${name}-run${run}.json"
+        cp "logs/test-run-summary.json" "$PROJECT_ROOT/$RESULTS_DIR/${name}-run${run}.json"
         echo "Results saved to $RESULTS_DIR/${name}-run${run}.json"
       else
         echo "WARNING: No test-run-summary.json found!"
@@ -115,7 +118,9 @@ for scenario_def in "${SCENARIOS[@]}"; do
       echo "ERROR: Test failed!"
       exit 1
     fi
-    
+
+    cd "$PROJECT_ROOT"
+
     # Cooldown between runs (except after last run of last scenario)
     if [ "$run" -lt "$RUNS" ] || [ "$current" -lt "$total_scenarios" ]; then
       echo "Cooling down for ${COOLDOWN}s..."
@@ -132,10 +137,9 @@ echo "Results saved to: $RESULTS_DIR"
 echo ""
 
 # Run analysis
-if [ -f "scripts/analyze-results.py" ]; then
+if [ -f "$PROJECT_ROOT/scripts/analyze-results.py" ]; then
   echo "Running analysis..."
-  python3 scripts/analyze-results.py "$RESULTS_DIR"
+  python3 "$PROJECT_ROOT/scripts/analyze-results.py" "$RESULTS_DIR"
 else
   echo "Run analysis with: python3 scripts/analyze-results.py $RESULTS_DIR"
 fi
-

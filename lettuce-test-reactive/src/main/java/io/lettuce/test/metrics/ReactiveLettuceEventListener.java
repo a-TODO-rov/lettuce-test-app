@@ -1,0 +1,107 @@
+package io.lettuce.test.metrics;
+
+import java.io.Closeable;
+import java.io.IOException;
+
+import io.lettuce.core.event.Event;
+import io.lettuce.core.event.EventBus;
+import io.lettuce.core.event.connection.ConnectedEvent;
+import io.lettuce.core.event.connection.ConnectionActivatedEvent;
+import io.lettuce.core.event.connection.ConnectionDeactivatedEvent;
+import io.lettuce.core.event.connection.DisconnectedEvent;
+import io.lettuce.core.event.connection.ReconnectAttemptEvent;
+import io.lettuce.core.event.connection.ReconnectFailedEvent;
+import io.lettuce.core.resource.ClientResources;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Primary;
+import org.springframework.stereotype.Component;
+import reactor.core.Disposable;
+
+/**
+ * Reactive version of event listener.
+ * <p>
+ * Uses reactive subscription: {@code eventBus.reactive().get().subscribe(Consumer)}.
+ * Requires Reactor on classpath.
+ */
+@Component
+@Primary
+public class ReactiveLettuceEventListener {
+
+    private static final Logger log = LoggerFactory.getLogger(ReactiveLettuceEventListener.class);
+
+    private final EventBus eventBus;
+
+    private Disposable subscription;
+
+    // Counters for connection events
+    private final Counter connectedCounter;
+    private final Counter disconnectedCounter;
+    private final Counter connectionActivatedCounter;
+    private final Counter connectionDeactivatedCounter;
+    private final Counter reconnectAttemptCounter;
+    private final Counter reconnectFailureCounter;
+
+    public ReactiveLettuceEventListener(ClientResources clientResources, MeterRegistry meterRegistry) {
+        this.eventBus = clientResources.eventBus();
+
+        // Initialize counters
+        this.connectedCounter = Counter.builder("redis.connection.events").tag("type", "connected")
+                .description("Redis connection events").register(meterRegistry);
+        this.disconnectedCounter = Counter.builder("redis.connection.events").tag("type", "disconnected")
+                .description("Redis connection events").register(meterRegistry);
+        this.connectionActivatedCounter = Counter.builder("redis.connection.events").tag("type", "activated")
+                .description("Redis connection events").register(meterRegistry);
+        this.connectionDeactivatedCounter = Counter.builder("redis.connection.events").tag("type", "deactivated")
+                .description("Redis connection events").register(meterRegistry);
+        this.reconnectAttemptCounter = Counter.builder("redis.reconnect.attempts")
+                .description("Redis reconnection attempts").register(meterRegistry);
+        this.reconnectFailureCounter = Counter.builder("redis.reconnect.failures")
+                .description("Redis reconnection failures").register(meterRegistry);
+
+        log.info("ReactiveLettuceEventListener initialized");
+    }
+
+    @PostConstruct
+    public void startListening() {
+        subscription = eventBus.reactive().get().subscribe(this::handleEvent);
+        log.info("Started listening to Lettuce events (reactive)");
+    }
+
+    private void handleEvent(Event event) {
+        if (event instanceof ConnectedEvent e) {
+            connectedCounter.increment();
+            log.debug("Connected: local={}, remote={}", e.localAddress(), e.remoteAddress());
+        } else if (event instanceof DisconnectedEvent e) {
+            disconnectedCounter.increment();
+            log.debug("Disconnected: local={}, remote={}", e.localAddress(), e.remoteAddress());
+        } else if (event instanceof ConnectionActivatedEvent e) {
+            connectionActivatedCounter.increment();
+            log.debug("Connection activated: local={}, remote={}", e.localAddress(), e.remoteAddress());
+        } else if (event instanceof ConnectionDeactivatedEvent e) {
+            connectionDeactivatedCounter.increment();
+            log.debug("Connection deactivated: local={}, remote={}", e.localAddress(), e.remoteAddress());
+        } else if (event instanceof ReconnectAttemptEvent e) {
+            reconnectAttemptCounter.increment();
+            log.debug("Reconnect attempt #{}: remote={}", e.getAttempt(), e.remoteAddress());
+        } else if (event instanceof ReconnectFailedEvent e) {
+            reconnectFailureCounter.increment();
+            log.warn("Reconnect failed: remote={}, cause={}", e.remoteAddress(),
+                    e.getCause() != null ? e.getCause().getMessage() : "unknown");
+        }
+    }
+
+    @PreDestroy
+    public void stopListening() {
+        if (subscription != null) {
+            subscription.dispose();
+            log.info("Stopped listening to Lettuce events");
+        }
+    }
+
+}
+
